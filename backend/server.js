@@ -9,6 +9,7 @@ const db = require("./config/db");
 
 const authRoutes = require("./routes/auth");
 const documentRoutes = require("./routes/documents");
+const analysisRoutes = require("./routes/analyses");
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
@@ -57,6 +58,7 @@ app.get("/api/health", async (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
+app.use("/api/analyses", analysisRoutes);
 
 app.use((error, req, res, next) => {
     console.error("API error:", error.message || error);

@@ -1,0 +1,91 @@
+# ==========================================
+# CORE PYTHON / CONFIGURATION
+# ==========================================
+
+python-dotenv
+pydantic
+pydantic-settings
+
+
+# ==========================================
+# LLM / GROQ
+# ==========================================
+
+groq
+langchain
+langchain-core
+langchain-groq
+langgraph
+
+
+# ==========================================
+# DOCUMENT PROCESSING
+# ==========================================
+
+pypdf
+python-docx
+pymupdf
+
+
+# ==========================================
+# RAG / VECTOR DATABASE / EMBEDDINGS
+# ==========================================
+
+chromadb
+sentence-transformers
+
+
+# ==========================================
+# DATA PROCESSING
+# ==========================================
+
+numpy
+pandas
+scikit-learn
+openpyxl
+rapidfuzz
+
+
+# ==========================================
+# WEB API / BACKEND INTEGRATION
+# ==========================================
+
+fastapi[standard]
+uvicorn[standard]
+python-multipart
+httpx
+orjson
+
+
+# ==========================================
+# RELIABILITY / RETRIES
+# ==========================================
+
+tenacity
+
+
+# ==========================================
+# TESTING
+# ==========================================
+
+pytest
+pytest-asyncio
+
+
+# ==========================================
+# HUGGING FACE / MODEL WORK
+# ==========================================
+
+huggingface-hub
+transformers
+datasets
+accelerate
+
+
+# ==========================================
+# FINE-TUNING — LoRA / QLoRA
+# ==========================================
+
+peft
+trl
+bitsandbytes

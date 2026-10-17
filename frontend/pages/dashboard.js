@@ -43,6 +43,10 @@ export default function Dashboard() {
 
     const [preview, setPreview] = useState(null);
 
+    const [analysisHistory, setAnalysisHistory] = useState([]);
+    const [currentAnalysis, setCurrentAnalysis] = useState(null);
+    const [analysisBusy, setAnalysisBusy] = useState(false);
+
     const [busy, setBusy] = useState(false);
     const [actionId, setActionId] = useState(null);
     const [notice, setNotice] = useState("");
@@ -66,10 +70,22 @@ export default function Dashboard() {
 
             setActiveResumeId(data.activeResumeId ?? null);
             setActiveJobId(data.activeJobDescriptionId ?? null);
+            await loadAnalysisHistory();
         } catch (err) {
             setError(err.message || "Could not load your dashboard.");
         }
     }
+
+
+    async function loadAnalysisHistory() {
+        try {
+            const data = await apiRequest("/analyses");
+            setAnalysisHistory(data.analyses || []);
+        } catch (err) {
+            console.error("Could not load analysis history:", err.message);
+        }
+    }
+
 
     useEffect(() => {
         loadDashboard();
@@ -214,6 +230,58 @@ export default function Dashboard() {
             setActionId(null);
         }
     }
+
+
+    async function handleAnalyze() {
+        if (!activeResumeId || !activeJobId) {
+            setError("Please select both a resume and a job description.");
+            return;
+        }
+
+        setAnalysisBusy(true);
+        setError("");
+        setNotice("");
+        setCurrentAnalysis(null);
+
+        try {
+            const data = await apiRequest("/analyses", {
+                method: "POST",
+                body: JSON.stringify({
+                    resumeId: activeResumeId,
+                    jobDescriptionId: activeJobId
+                })
+            });
+
+            setCurrentAnalysis(data);
+            setNotice("Resume analysis completed and saved successfully.");
+
+            await loadAnalysisHistory();
+        } catch (err) {
+            setError(err.message || "Resume analysis failed.");
+        } finally {
+            setAnalysisBusy(false);
+        }
+    }
+
+    async function handleOpenAnalysis(id) {
+        setError("");
+        setNotice("");
+        setActionId(`analysis-${id}`);
+
+        try {
+            const data = await apiRequest(`/analyses/${id}`);
+            setCurrentAnalysis(data);
+            document.getElementById("analysis-report")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start"
+            });
+        } catch (err) {
+            setError(err.message || "Could not open this analysis report.");
+        } finally {
+            setActionId(null);
+        }
+    }
+
 
     async function handleDownload(id, filename) {
         setError("");
@@ -539,12 +607,14 @@ export default function Dashboard() {
                         <small>Roles you are targeting</small>
                     </div>
 
+
                     <div className="stat-card">
                         <span className="stat-symbol green">✦</span>
                         <p>Analysis reports</p>
-                        <strong>0</strong>
-                        <small>Analysis module not enabled yet</small>
+                        <strong>{analysisHistory.length}</strong>
+                        <small>Saved ATS reports</small>
                     </div>
+
                 </div>
 
                 <section className="panel selection-panel">
@@ -584,10 +654,32 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <p className="dashboard-footnote">
-                        Resume analysis is not enabled yet. Your selections
-                        are saved for the next development phase.
-                    </p>
+
+                    <div className="analysis-action">
+                        <p className="dashboard-footnote">
+                            Analyze your selected resume against your selected job description.
+                        </p>
+
+                        <button
+                            type="button"
+                            className="primary-btn"
+                            onClick={handleAnalyze}
+                            disabled={
+                                analysisBusy ||
+                                !activeResume ||
+                                !activeJob
+                            }
+                        >
+                            {analysisBusy ? "Analyzing resume..." : "✦ Analyze Resume"}
+                        </button>
+
+                        {(!activeResume || !activeJob) && (
+                            <small>
+                                Select both a resume and a job description to continue.
+                            </small>
+                        )}
+                    </div>
+
                 </section>
 
                 <div className="section-grid">
@@ -937,6 +1029,219 @@ export default function Dashboard() {
                         </div>
                     </section>
                 </div>
+
+                {/* CURRENT ATS REPORT */}
+                {currentAnalysis && (
+                    <section id="analysis-report" className="panel analysis-panel">
+                        <div className="panel-heading">
+                            <div>
+                                <p className="eyebrow">AI-POWERED RESUME REVIEW</p>
+                                <h2>ATS Analysis Report</h2>
+                                <p>
+                                    {currentAnalysis.resume_name || "Selected resume"}
+                                    {" · "}
+                                    {currentAnalysis.job_title || "Selected job"}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="small-action-btn"
+                                onClick={() => setCurrentAnalysis(null)}
+                            >
+                                Close report
+                            </button>
+                        </div>
+
+                        {(() => {
+                            const report = currentAnalysis.result?.ats_analysis || {};
+                            const score = Number(
+                                currentAnalysis.match_score ?? report.overall_score ?? 0
+                            );
+
+                            return (
+                                <>
+                                    <div className="analysis-score">
+                                        <div>
+                                            <small>OVERALL MATCH SCORE</small>
+                                            <strong>{score.toFixed(1)}%</strong>
+                                            <p>Resume-to-job compatibility</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="section-grid analysis-metrics">
+                                        <div className="selected-document">
+                                            <small>REQUIRED SKILL MATCH</small>
+                                            <b>
+                                                {Number(
+                                                    report.required_skill_match_percentage || 0
+                                                ).toFixed(1)}%
+                                            </b>
+                                        </div>
+
+                                        <div className="selected-document">
+                                            <small>PREFERRED SKILL MATCH</small>
+                                            <b>
+                                                {Number(
+                                                    report.preferred_skill_match_percentage || 0
+                                                ).toFixed(1)}%
+                                            </b>
+                                        </div>
+                                    </div>
+
+                                    <div className="section-grid analysis-details">
+                                        <div>
+                                            <h3>Matched required skills</h3>
+                                            {report.matched_required_skills?.length ? (
+                                                <ul className="analysis-skill-list">
+                                                    {report.matched_required_skills.map(
+                                                        (skill, index) => (
+                                                            <li key={`${skill}-${index}`}>
+                                                                ✓ {skill}
+                                                            </li>
+                                                        )
+                                                    )}
+                                                </ul>
+                                            ) : (
+                                                <p className="muted">No matched skills listed.</p>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <h3>Missing required skills</h3>
+                                            {report.missing_required_skills?.length ? (
+                                                <ul className="analysis-skill-list">
+                                                    {report.missing_required_skills.map(
+                                                        (skill, index) => (
+                                                            <li key={`${skill}-${index}`}>
+                                                                • {skill}
+                                                            </li>
+                                                        )
+                                                    )}
+                                                </ul>
+                                            ) : (
+                                                <p className="muted">
+                                                    No missing required skills identified.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {report.partial_required_skills?.length > 0 && (
+                                        <div className="analysis-subsection">
+                                            <h3>Partially matched skills</h3>
+                                            <ul className="analysis-skill-list">
+                                                {report.partial_required_skills.map(
+                                                    (skill, index) => (
+                                                        <li key={`${skill}-${index}`}>
+                                                            ◐ {skill}
+                                                        </li>
+                                                    )
+                                                )}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="analysis-subsection">
+                                        <h3>AI recommendations</h3>
+
+                                        {report.recommendations?.length ? (
+                                            report.recommendations.map((item, index) => (
+                                                <article
+                                                    className="analysis-recommendation"
+                                                    key={index}
+                                                >
+                                                    <b>
+                                                        {item.priority
+                                                            ? `${item.priority.toUpperCase()} PRIORITY`
+                                                            : "RECOMMENDATION"}
+                                                    </b>
+                                                    <p>{item.message || String(item)}</p>
+                                                </article>
+                                            ))
+                                        ) : (
+                                            <p className="muted">
+                                                No recommendations were returned.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {report.matched_preferred_skills?.length > 0 && (
+                                        <div className="analysis-subsection">
+                                            <h3>Matched preferred skills</h3>
+                                            <ul className="analysis-skill-list">
+                                                {report.matched_preferred_skills.map(
+                                                    (skill, index) => (
+                                                        <li key={`${skill}-${index}`}>
+                                                            ✓ {skill}
+                                                        </li>
+                                                    )
+                                                )}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </section>
+                )}
+
+                {/* SAVED ANALYSIS HISTORY */}
+                <section className="panel analysis-panel">
+                    <div className="panel-heading">
+                        <div>
+                            <h2>Analysis history</h2>
+                            <p>Reopen reports from your previous resume analyses.</p>
+                        </div>
+
+                        <span className="panel-count">{analysisHistory.length}</span>
+                    </div>
+
+                    {analysisHistory.length === 0 ? (
+                        <p className="empty-state">
+                            No saved reports yet. Select your documents and run your first analysis.
+                        </p>
+                    ) : (
+                        <div className="document-list">
+                            {analysisHistory.map((item) => (
+                                <article className="job-item managed-item" key={item.id}>
+                                    <div className="managed-item-title">
+                                        <div className="file-badge">AI</div>
+
+                                        <div className="document-info">
+                                            <b>{item.job_title || "Job analysis"}</b>
+                                            <small>
+                                                {item.resume_name || "Resume"}
+                                                {" · "}
+                                                {formatDate(item.created_at)}
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div className="analysis-history-score">
+                                        {Number(item.match_score || 0).toFixed(1)}%
+                                    </div>
+
+                                    <p className="job-description-snippet">
+                                        {item.company || "Company not specified"}
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        className="small-action-btn"
+                                        disabled={actionId === `analysis-${item.id}`}
+                                        onClick={() => handleOpenAnalysis(item.id)}
+                                    >
+                                        {actionId === `analysis-${item.id}`
+                                            ? "Opening..."
+                                            : "View report"}
+                                    </button>
+                                </article>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
 
                 <p className="dashboard-footnote">
                     PrepWise · Resume management and job targeting workspace.

@@ -89,3 +89,6 @@ CREATE TABLE IF NOT EXISTS user_document_preferences (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP
 );
+
+ALTER TABLE analyses
+ADD COLUMN result_json MEDIUMTEXT NULL AFTER summary;
